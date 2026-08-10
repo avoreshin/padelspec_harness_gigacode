@@ -1,0 +1,321 @@
+# R0–R5 Risk-Adaptive Permission Ladder
+#
+# Policy-as-code согласно §4.5 AI DISRUPT PDLC v3.5.
+# Карта «risk class → разрешённые/запрещённые действия → требования к governance».
+#
+# Используется хуками:
+#   - destructive-command-blocker.sh    (B5: блокировки по R-классу)
+#   - subagent-stop-validator.sh        (B4: проверка mandate vs R-класс)
+#   - evidence-bundle-enforcer.sh       (требования к audit depth)
+#   - cost-circuit-breaker.sh           (B2: token budget per R-класс)
+#
+# Source of truth: эта политика. GIGACODE.md описывает её человекочитаемо,
+# но enforcement живёт только здесь и в хуках.
+
+version: "1.0.0"
+pdlc_version: "3.5"
+spec_section: "§4.5"
+
+# ============================================================================
+# RISK CLASSES
+# ============================================================================
+# Каждый класс описывает:
+#   examples          — что попадает в этот класс
+#   autonomy          — уровень самостоятельности агента
+#   requires          — что обязательно для завершения задачи
+#   denies            — действия, заблокированные на runtime
+#   asks              — действия, требующие явного approval
+#   token_budget      — лимит токенов на задачу (входит cost-circuit-breaker)
+#   audit_depth       — глубина audit trail
+#   subagent_scope    — какие subagents допустимы
+
+classes:
+
+  R0:
+    label: "Trivial / non-prod"
+    examples:
+      - "docs, comments, formatting"
+      - "typo fixes"
+      - "README updates"
+    autonomy: auto
+    requires:
+      sdd: false
+      tests: false
+      security_verdict: false
+      human_review: false
+      evidence_bundle: minimal
+    denies: []
+    asks: []
+    token_budget: 50000
+    audit_depth: jsonl_minimal
+    subagent_scope:
+      - direct  # без subagent'ов, оверхед не оправдан
+
+  R1:
+    label: "Local refactor / tests / non-prod code"
+    examples:
+      - "unit tests"
+      - "local refactor without API change"
+      - "non-production code"
+      - "developer tooling"
+    autonomy: auto_with_hooks
+    requires:
+      sdd: optional
+      tests: true
+      security_verdict: false
+      human_review: false
+      evidence_bundle: standard
+    denies:
+      - "Bash(git push --force*)"
+      - "Bash(rm -rf*)"
+    asks:
+      - "Bash(npm publish*)"
+      - "Bash(pip install*)"
+    token_budget: 200000
+    audit_depth: jsonl_standard
+    subagent_scope:
+      - explore
+      - test
+      - coding
+      - review
+
+  R2:
+    label: "Feature code behind flag"
+    examples:
+      - "new feature behind feature flag"
+      - "API additions (non-breaking)"
+      - "internal endpoint changes"
+    autonomy: agent_pr_human_review
+    requires:
+      sdd: true
+      tests: true
+      security_verdict: optional
+      human_review: true
+      evidence_bundle: standard
+    denies:
+      - "Bash(git push --force*)"
+      - "Bash(rm -rf*)"
+      - "Write(infra/**)"
+      - "Write(migrations/**)"
+    asks:
+      - "Bash(git push*)"
+      - "Bash(docker push*)"
+    token_budget: 500000
+    audit_depth: jsonl_pr_evidence
+    subagent_scope:
+      - explore
+      - plan
+      - test
+      - coding
+      - review
+
+  R3:
+    label: "Auth / Payments / PII / Infra"
+    examples:
+      - "authentication / authorization code"
+      - "payment processing"
+      - "PII handling"
+      - "infrastructure-as-code touching prod"
+    autonomy: agent_draft_security_review
+    requires:
+      sdd: true
+      tests: true
+      security_verdict: mandatory   # ← Security Agent обязателен
+      human_review: true
+      evidence_bundle: full
+    denies:
+      - "Bash(git push --force*)"
+      - "Bash(rm -rf*)"
+      - "Bash(curl*|*sh)"
+      - "Bash(wget*|*sh)"
+      - "Write(infra/**)"
+      - "Write(migrations/**)"
+      - "Write(.github/workflows/**)"
+      - "Read(.env*)"
+      - "Read(**/*.pem)"
+    asks:
+      - "Bash(git push*)"
+      - "Bash(terraform plan*)"
+      - "Bash(kubectl apply*)"
+    token_budget: 1000000
+    audit_depth: jsonl_full_with_security
+    subagent_scope:
+      - explore
+      - plan
+      - test
+      - coding
+      - review
+      - security  # ← обязателен
+
+  R4:
+    label: "Production data / IAM / Migrations"
+    examples:
+      - "production data modifications"
+      - "IAM policy changes"
+      - "database migrations against prod"
+      - "secret rotation"
+    autonomy: human_approval_separation_of_duties
+    requires:
+      sdd: true
+      tests: true
+      security_verdict: mandatory
+      human_review: true
+      separation_of_duties: true   # ← автор ≠ ревьюер ≠ деплоер
+      evidence_bundle: change_advisory_package
+    denies:
+      - "Bash(git push --force*)"
+      - "Bash(rm -rf*)"
+      - "Bash(terraform apply*)"
+      - "Bash(kubectl delete*)"
+      - "Write(infra/**)"
+      - "Write(migrations/**)"
+    asks:
+      - "Bash(*)"  # любая Bash требует approval
+      - "Write(*)"
+    token_budget: 2000000
+    audit_depth: jsonl_full_with_security_and_human_signoff
+    subagent_scope:
+      - explore
+      - plan
+      - test
+      - coding
+      - review
+      - security
+
+  R5:
+    label: "Regulated risk logic / Model logic"
+    examples:
+      - "credit risk scoring"
+      - "regulated decision logic (loan approval, KYC)"
+      - "model weights or training pipeline"
+      - "anti-fraud rules"
+    autonomy: change_advisory_board
+    requires:
+      sdd: true
+      tests: true
+      security_verdict: mandatory
+      human_review: true
+      separation_of_duties: true
+      change_advisory_board: true   # ← CAB approval
+      regulatory_eval_set: true     # ← регуляторные evals
+      evidence_bundle: full_audit_package
+    denies:
+      # Всё, что в R4, плюс:
+      - "Bash(*)"        # никакого автономного Bash
+      - "Write(*)"       # никакой автономной записи
+    asks: []            # asks бессмысленны, только human-driven
+    token_budget: 3000000
+    audit_depth: jsonl_full_with_cab_signoff
+    subagent_scope:
+      - explore
+      - plan
+      - test
+      - coding
+      - review
+      - security
+
+# ============================================================================
+# DOMAIN → DEFAULT RISK CLASS
+# ============================================================================
+# Если путь файла попадает в один из паттернов — минимальный risk class.
+# При сомнении выбирать класс ВЫШЕ (правило §3 GIGACODE.md).
+
+domain_defaults:
+  - pattern: "docs/**"
+    min_class: R0
+  - pattern: "**/*.md"
+    min_class: R0
+  - pattern: "tests/**"
+    min_class: R1
+  - pattern: "**/*_test.*"
+    min_class: R1
+  - pattern: "**/*.spec.*"
+    min_class: R1
+  - pattern: "src/auth/**"
+    min_class: R3
+  - pattern: "src/payments/**"
+    min_class: R3
+  - pattern: "src/billing/**"
+    min_class: R3
+  - pattern: "**/pii/**"
+    min_class: R3
+  - pattern: "infra/**"
+    min_class: R3
+  - pattern: "migrations/**"
+    min_class: R4
+  - pattern: ".github/workflows/**"
+    min_class: R3
+  - pattern: "**/risk/**"
+    min_class: R5
+  - pattern: "**/kyc/**"
+    min_class: R5
+  - pattern: "**/fraud/**"
+    min_class: R5
+  - pattern: "**/scoring/**"
+    min_class: R5
+
+# ============================================================================
+# ESCALATION TRIGGERS
+# ============================================================================
+# Условия, при которых задача автоматически эскалируется на класс выше.
+
+escalation:
+  triggers:
+    - condition: "files_touched_count > 20"
+      action: "bump_up_one_class"
+    - condition: "lines_changed > 500"
+      action: "bump_up_one_class"
+    - condition: "new_dependency_added"
+      action: "require_security_verdict"
+    - condition: "schema_migration_detected"
+      action: "set_min_class:R4"
+    - condition: "secret_rotation_keyword"
+      action: "set_min_class:R4"
+    - condition: "deny_rule_triggered"
+      action: "halt_and_escalate"
+
+# ============================================================================
+# AUDIT DEPTH SCHEMAS
+# ============================================================================
+# Что должно быть в JSONL audit trail для каждого уровня.
+
+audit_schemas:
+  jsonl_minimal:
+    fields: [timestamp, agent, tool, decision]
+
+  jsonl_standard:
+    fields: [timestamp, agent, tool, decision, diff_summary, test_status]
+
+  jsonl_pr_evidence:
+    fields: [timestamp, agent, tool, decision, diff_summary, test_status,
+             pr_link, reviewer]
+
+  jsonl_full_with_security:
+    fields: [timestamp, agent, tool, decision, diff_summary, test_status,
+             pr_link, reviewer, security_verdict, security_findings,
+             threat_model_coverage]
+
+  jsonl_full_with_security_and_human_signoff:
+    fields: [timestamp, agent, tool, decision, diff_summary, test_status,
+             pr_link, reviewer, security_verdict, security_findings,
+             threat_model_coverage, human_signoff_id, signoff_timestamp,
+             separation_of_duties_proof]
+
+  jsonl_full_with_cab_signoff:
+    fields: [timestamp, agent, tool, decision, diff_summary, test_status,
+             pr_link, reviewer, security_verdict, security_findings,
+             threat_model_coverage, human_signoff_id, signoff_timestamp,
+             separation_of_duties_proof, cab_decision_id, cab_minutes_link,
+             regulatory_eval_results]
+
+# ============================================================================
+# MAPPING NOTES
+# ============================================================================
+# Чтобы изменения в этом файле были безопасными — следовать правилам:
+#
+# 1. Снижать risk class пути — только через PR с обоснованием.
+# 2. Расширять token_budget — только через review (R3+).
+# 3. Удалять записи из denies — только через security review.
+# 4. Добавлять новый класс — версия major bump + миграция хуков.
+# 5. Это файл policy-as-code. GIGACODE.md и AGENTS.md — guidance,
+#    они не могут переопределить эти правила (§2.6 PDLC v3.5).
