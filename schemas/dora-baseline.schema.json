@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-disrupt-pdlc.io/schemas/dora-baseline.schema.json",
+  "title": "DORA Baseline Record v1.0",
+  "description": "Baseline DORA-метрик команды в момент Step 0 трансформации (см. SDD-20260517-step0-pdlc-preparation, AC-1). Валидируется на JSON, извлечённом из markdown через .gigacode/scripts/extract-dora-frontmatter.sh. Окно ≥ 30 дней, флаг pre_existing_ai_usage обязателен для INV-1 anti-contamination.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "team",
+    "repos",
+    "measurement_window",
+    "lead_time",
+    "deployment_frequency",
+    "change_failure_rate",
+    "mttr",
+    "data_source",
+    "pre_existing_ai_usage",
+    "sections"
+  ],
+  "properties": {
+    "team": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Идентификатор pilot team. Kebab-case slug."
+    },
+    "repos": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Один или два репозитория pilot team. Больше двух — нарушает scope Step 0 (§7.3 PDLC)."
+    },
+    "measurement_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to", "days"],
+      "properties": {
+        "from": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "Начало окна измерения, ISO 8601 date."
+        },
+        "to": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "Конец окна измерения, ISO 8601 date."
+        },
+        "days": {
+          "type": "integer",
+          "minimum": 30,
+          "description": "Длительность окна в днях. AC-1 требует ≥ 30 дней."
+        }
+      },
+      "description": "Окно сбора метрик. Меньше 30 дней — недостаточно репрезентативно."
+    },
+    "lead_time": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["median"],
+      "properties": {
+        "median": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Lead Time for Changes — median. Свободная форма (часы / дни / коммит→prod)."
+        }
+      }
+    },
+    "deployment_frequency": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["value"],
+      "properties": {
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Частота деплоев — свободная форма (раз/день, раз/неделю)."
+        }
+      }
+    },
+    "change_failure_rate": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["value"],
+      "properties": {
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "description": "CFR — обычно процент. Свободная форма."
+        }
+      }
+    },
+    "mttr": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["median"],
+      "properties": {
+        "median": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Failed Deployment Recovery Time — median."
+        }
+      }
+    },
+    "data_source": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Откуда взяты данные (DORA Quick Check / LinearB / internal CI export)."
+    },
+    "pre_existing_ai_usage": {
+      "type": "boolean",
+      "description": "INV-1 (anti-contamination): true если в команде уже используются AI-инструменты на момент baseline. Поле обязательно — отсутствие интерпретируется как 'unknown' и нарушает SDD-20260517-step0 AC-1.5."
+    },
+    "measured_by": {
+      "type": "string",
+      "description": "Кто проводил замер. Обычно Champion + Team Lead. Optional на schema-уровне."
+    },
+    "created": {
+      "type": "string",
+      "description": "ISO 8601 date создания baseline-документа. Optional."
+    },
+    "raw_data_source": {
+      "type": "string",
+      "description": "Ссылка / описание raw-данных для воспроизводимости. AC-1.2 требует воспроизводимости — но это soft check."
+    },
+    "sections": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "has_lead_time",
+        "has_deployment_frequency",
+        "has_change_failure_rate",
+        "has_mttr"
+      ],
+      "properties": {
+        "has_lead_time":            { "type": "boolean", "const": true },
+        "has_deployment_frequency": { "type": "boolean", "const": true },
+        "has_change_failure_rate":  { "type": "boolean", "const": true },
+        "has_mttr":                 { "type": "boolean", "const": true },
+        "has_raw_data_source":      { "type": "boolean", "description": "Желательна, но не блокирует schema-validation." }
+      },
+      "description": "Все 4 DORA-метрики должны иметь свою секцию в markdown."
+    }
+  }
+}
