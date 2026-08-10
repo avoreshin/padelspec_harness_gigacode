@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-disrupt-pdlc.io/schemas/audit-event.schema.json",
+  "title": "Audit Event (JSONL audit-trail line) v3.5",
+  "description": "Одна строка append-only audit-trail (.gigacode/audit/<YYYY-MM-DD>.jsonl, §5.7 PDLC v3.5). Покрывает два источника: (1) tool-события от hook jsonl-audit-sink.sh (PostToolUse / SubagentStop / Stop) и (2) phase_transition-события от scripts/emit-phase-event.sh (Phase Gate Protocol). Валидируется в validate-schemas.sh AC-4 построчно с порогом ≥90%. Обязательный минимум — timestamp + event; при event=phase_transition обязательны поля перехода (их читает workflow-state.sh).",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["timestamp", "event"],
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "minLength": 1,
+      "description": "UTC ISO-8601 момент события (ожидается формат YYYY-MM-DDTHH:MM:SSZ). Обязателен — без него строка не приземляется в хронологию audit-trail. Строгий format: date-time сознательно НЕ навязан: исторические строки от jsonl-audit-sink несут суффикс '.3NZ' (не-portable %3N на BSD date), и схема не должна отвергать собственный вывод харнесса; негативный контроль здесь — отсутствие поля (required), а не его формат."
+    },
+    "event": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Тип события. Для tool-событий — имя hook-события (PostToolUse, SubagentStop, Stop, unknown). Для фазовых переходов — строго 'phase_transition'."
+    },
+    "agent": {
+      "type": "string",
+      "description": "Кто произвёл событие: 'main' или имя subagent'а. Пишется jsonl-audit-sink."
+    },
+    "tool": {
+      "type": "string",
+      "description": "Имя инструмента (Bash / Write / Edit / …) для tool-событий. Пусто для фазовых переходов."
+    },
+    "decision": {
+      "type": "string",
+      "description": "Решение policy-слоя: allow / block / ask / deny. Пишется jsonl-audit-sink (default allow)."
+    },
+    "risk_class": {
+      "type": "string",
+      "pattern": "^R[0-5]$",
+      "description": "R-класс задачи на момент события. Позволяет агрегировать audit-trail по риск-классам."
+    },
+    "task_id": {
+      "type": "string",
+      "description": "ID SDD задачи (slug). Обязателен для phase_transition — по нему workflow-state.sh собирает состояние задачи."
+    },
+    "from": {
+      "type": "string",
+      "enum": ["none", "plan", "test", "implement", "review", "evidence"],
+      "description": "Фаза, из которой выходим ('none' — первый переход в plan). Только для phase_transition."
+    },
+    "to": {
+      "type": "string",
+      "enum": ["plan", "test", "implement", "review", "evidence", "done"],
+      "description": "Фаза, в которую переходим. Только для phase_transition; workflow-state.sh читает как current_phase."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pass", "fail", "iterate", "escalate"],
+      "description": "Итог фазы. Только для phase_transition; workflow-state.sh читает как last_status."
+    },
+    "iteration": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Номер итерации в фазе (1-based). Для Implement растёт при self-loop, сбрасывается при смене фазы."
+    },
+    "reason": {
+      "type": "string",
+      "description": "Человекочитаемое объяснение перехода — чтобы review audit-trail через недели понял решение без re-run'а."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"event": {"const": "phase_transition"}},
+        "required": ["event"]
+      },
+      "then": {
+        "required": ["task_id", "from", "to", "status", "iteration"]
+      }
+    }
+  ]
+}
