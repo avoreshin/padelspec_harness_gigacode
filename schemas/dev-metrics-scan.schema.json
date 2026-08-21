@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Developer Metrics Scan",
+  "description": "Результат сканирования проекта на наличие кастомных метрик разработчиков.",
+  "type": "object",
+  "required": ["project_root", "total_custom_metrics", "metrics_by_type", "metrics_files"],
+  "properties": {
+    "project_root": {
+      "type": "string",
+      "description": "Абсолютный путь к корню проекта."
+    },
+    "total_custom_metrics": {
+      "type": "integer",
+      "description": "Общее количество уникальных кастомных метрик (после фильтрации исключений).",
+      "minimum": 0
+    },
+    "metrics_by_type": {
+      "type": "object",
+      "description": "Метрики, сгруппированные по типу Micrometer.",
+      "properties": {
+        "Counter": { "type": "array", "items": { "$ref": "#/$defs/metric_entry" } },
+        "Timer": { "type": "array", "items": { "$ref": "#/$defs/metric_entry" } },
+        "Gauge": { "type": "array", "items": { "$ref": "#/$defs/metric_entry" } },
+        "DistributionSummary": { "type": "array", "items": { "$ref": "#/$defs/metric_entry" } },
+        "LongTaskTimer": { "type": "array", "items": { "$ref": "#/$defs/metric_entry" } },
+        "FunctionTimer": { "type": "array", "items": { "$ref": "#/$defs/metric_entry" } },
+        "FunctionCounter": { "type": "array", "items": { "$ref": "#/$defs/metric_entry" } }
+      },
+      "additionalProperties": false
+    },
+    "metrics_files": {
+      "type": "array",
+      "description": "Детальные записи по каждому источнику метрики в коде.",
+      "items": { "$ref": "#/$defs/metric_entry" }
+    },
+    "unregistered_counters": {
+      "type": "array",
+      "description": "Счётчики, которые используются без предварительной регистрации в @PostConstruct / init(). Micrometer создаёт их лениво, но JMX-регистрации может не быть.",
+      "items": { "$ref": "#/$defs/metric_entry" }
+    },
+    "dynamic_metrics_summary": {
+      "type": "array",
+      "description": "Метрики с динамическим именем (шаблон + суффикс из переменной).",
+      "items": {
+        "type": "object",
+        "required": ["prefix", "suffix_source", "example"],
+        "properties": {
+          "prefix": {
+            "type": "string",
+            "description": "Префикс имени метрики (до конкатенации)."
+          },
+          "suffix_source": {
+            "type": "string",
+            "description": "Источник суффикса: имя переменной или выражение (напр. 'clusterId', 'cluster.getName()')."
+          },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Теги, которые автоматически добавляются к такой метрике."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["Counter", "Timer", "Gauge", "DistributionSummary", "LongTaskTimer"],
+            "description": "Тип Micrometer-метрики."
+          },
+          "example": {
+            "type": "string",
+            "description": "Пример полного имени (напр. 'QuantityMessagesSendedToEnricher_cluster1')."
+          },
+          "line": {
+            "type": "integer",
+            "description": "Номер строки, где создаётся шаблон."
+          },
+          "file": {
+            "type": "string",
+            "description": "Путь к файлу."
+          }
+        }
+      }
+    },
+    "excluded_library_metrics": {
+      "type": "array",
+      "description": "Библиотечные метрики, которые были обнаружены, но намеренно исключены из отчёта.",
+      "items": {
+        "type": "object",
+        "required": ["library", "prefix"],
+        "properties": {
+          "library": { "type": "string" },
+          "prefix": { "type": "string" },
+          "detection_method": { "type": "string" }
+        }
+      }
+    },
+    "scan_metadata": {
+      "type": "object",
+      "required": ["scan_date", "scanner_skill", "excluded_prefixes"],
+      "properties": {
+        "scan_date": { "type": "string", "format": "date-time" },
+        "scanner_skill": { "type": "string" },
+        "excluded_prefixes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "metric_entry": {
+      "type": "object",
+      "required": ["path", "line", "metric_name", "type"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Абсолютный путь к файлу."
+        },
+        "line": {
+          "type": "integer",
+          "description": "Номер строки с регистрацией/использованием метрики.",
+          "minimum": 0
+        },
+        "metric_name": {
+          "type": "string",
+          "description": "Полное имя метрики (если динамическое — базовое имя/префикс)."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["Counter", "Timer", "Gauge", "DistributionSummary", "LongTaskTimer", "FunctionTimer", "FunctionCounter"]
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Список тегов, добавляемых к метрике."
+        },
+        "code_snippet": {
+          "type": "string",
+          "description": "Короткая строка кода, где создаётся/инкрементируется метрика (до 200 символов)."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Дополнительные заметки: JMX, @PostConstruct, динамическое имя, и т.д."
+        }
+      }
+    }
+  }
+}
