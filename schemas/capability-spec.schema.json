@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-disrupt-pdlc.io/schemas/capability-spec.schema.json",
+  "title": "Living Capability Spec (specs-layer, OpenSpec C-lite)",
+  "description": "Структура specs/<capability>.md — живого источника правды «что система умеет СЕЙЧАС» (ADR-0002, Option C-lite). Валидируется на JSON, извлечённом из markdown (scripts/extract-capability-frontmatter.sh). Файл обновляется только через archive-fold дельт из docs/sdd/ (scripts/spec-archive.sh), не редактируется вручную. Механизм 1 из трёх, взятых у OpenSpec (Fission-AI) — без внешнего CLI (INV-3 spike).",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "capability",
+    "version",
+    "status",
+    "requirements",
+    "sections"
+  ],
+  "properties": {
+    "capability": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "kebab-case имя capability. Должно совпадать с именем файла specs/<capability>.md без расширения."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "SemVer. Bump правило: archive Added → minor, Modified/Removed breaking → major, чинящая дельта → patch."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "draft", "deprecated"],
+      "description": "Жизненный цикл capability. active — используется; draft — засеяна, не подтверждена; deprecated — выводится."
+    },
+    "owner": {
+      "type": "string",
+      "description": "Владелец capability. Optional — обычно github-handle."
+    },
+    "last_archived_change": {
+      "type": "string",
+      "description": "ID последней свёрнутой в неё дельты (SDD-YYYYMMDD-<slug>). Даёт трассировку change-id ↔ capability (INV-2 spike). Optional для seeded-capability без истории."
+    },
+    "last_update": {
+      "type": "string",
+      "description": "ISO 8601 date последнего archive-fold. Optional."
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Требования capability как Given-When-Then (заголовки ### REQ-N). Минимум одно — пустая capability не имеет смысла."
+    },
+    "invariants": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Property-based инварианты capability (**INV-N**). Optional."
+    },
+    "sections": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["has_requirements"],
+      "properties": {
+        "has_requirements": {
+          "const": true,
+          "description": "Секция ## Requirements обязана присутствовать."
+        },
+        "has_invariants": { "type": "boolean" }
+      }
+    }
+  }
+}
