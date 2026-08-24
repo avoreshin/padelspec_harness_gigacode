@@ -1,0 +1,11 @@
+{
+  "name": "padelspec-harness",
+  "version": "0.8.7",
+  "description": "PaDeLSpec (padelspec-harness) — governance-обвязка AI DISRUPT PDLC v3.5 как расширение GigaCode CLI (Sber): команды /pdls:*, субагенты, скиллы, policy-хуки, evidence-gate.",
+  "contextFileName": "GIGACODE.md",
+  "commands": "commands/",
+  "agents": "agents/",
+  "skills": "skills/",
+  "hooks": "hooks/",
+  "settings": []
+}

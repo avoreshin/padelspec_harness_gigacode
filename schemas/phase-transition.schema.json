@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-disrupt-pdlc.io/schemas/phase-transition.schema.json",
+  "title": "Phase Transition (Subagent Structured Output) v3.5",
+  "description": "Structured output, который subagent (test / coding / review) обязан включить в конец своего ответа в блоке <!-- phase-transition:json --><pre>{...}</pre>. Источник правды для решения main-агента / CI: continue / iterate / escalate. SDD-20260522-phase-gate-protocol, AC-1.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["phase", "status", "next_phase", "reason", "iteration"],
+  "properties": {
+    "phase": {
+      "type": "string",
+      "enum": ["plan", "test", "implement", "review", "evidence"],
+      "description": "Текущая фаза loop'а, из которой выходит агент. См. GIGACODE.md §4."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pass", "fail", "iterate", "escalate"],
+      "description": "Итог фазы: pass — exit criteria выполнены, можно дальше; fail — exit criteria не выполнены и пора менять стратегию (см. recovery matrix); iterate — нужна ещё одна попытка в той же фазе (iter+=1); escalate — превышен iteration cap или встретилась situation, требующая человека (§9 GIGACODE.md)."
+    },
+    "next_phase": {
+      "type": "string",
+      "enum": ["plan", "test", "implement", "review", "evidence", "done"],
+      "description": "Куда переходим. Должен быть консистентен с recovery matrix §7 SDD: e.g. (phase=review, status=fail, findings.critical≥1) ⇒ next_phase=plan."
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 5,
+      "description": "Человекочитаемое объяснение перехода. Обязательно non-empty: review reading audit-trail через две недели должен понять решение без re-run'а."
+    },
+    "iteration": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Номер итерации в текущей фазе (1-based). Для Implement: при transition implement→implement увеличивается; при transition в другую фазу сбрасывается на 1."
+    },
+    "findings": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Структурированные findings агента. Обязательно для review-фазы (verdict-блок); опционально для остальных. Поля critical/major/minor — массивы строк-описаний. Используется при принятии recovery decision: critical≥1 ⇒ откат на plan; major≥1 ⇒ откат на implement.",
+      "properties": {
+        "critical": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Architectural-level issues, SDD-violation, security gaps. Триггер для rollback на Plan."
+        },
+        "major": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Implementation-level issues, fixable в текущей архитектуре. Триггер для rollback на Implement."
+        },
+        "minor": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Cosmetic / style / nice-to-have. Не блокирует Evidence фазу."
+        }
+      }
+    },
+    "evidence_artifacts": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Список путей к артефактам, произведённым в этой фазе (новые тесты, изменённые src/, evidence bundle). Опционально, но рекомендуется для R2+ — упрощает review."
+    },
+    "task_id": {
+      "type": "string",
+      "description": "ID SDD текущей задачи (slug). Опционально, но рекомендуется для cross-reference в audit-trail."
+    },
+    "risk_class": {
+      "type": "string",
+      "pattern": "^R[0-5]$",
+      "description": "R-класс задачи. Опционально — для downstream audit aggregation по риск-классам."
+    }
+  }
+}
