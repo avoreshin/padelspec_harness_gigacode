@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-disrupt-pdlc.io/schemas/risk-ladder.schema.json",
+  "title": "Risk Ladder Policy v3.5",
+  "description": "Структура .gigacode/policies/risk-ladder.yaml согласно §4.5 AI DISRUPT PDLC v3.5. Все 6 классов R0..R5 обязательны. Каждый класс описывает autonomy / audit depth / token budget / subagent scope. Используется хуками destructive-command-blocker, cost-circuit-breaker, evidence-bundle-enforcer, subagent-stop-validator.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["version", "classes"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "SemVer для самой risk-ladder политики (отдельно от schema version)."
+    },
+    "pdlc_version": {
+      "type": "string",
+      "description": "Версия PDLC методологии, на которую опирается ladder. Обычно '3.5'."
+    },
+    "spec_section": {
+      "type": "string",
+      "description": "Ссылка на раздел PDLC. Обычно '§4.5'."
+    },
+    "classes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["R0", "R1", "R2", "R3", "R4", "R5"],
+      "description": "Все 6 классов обязательны. R0-R5 покрывают весь спектр от тривиальных до regulated.",
+      "patternProperties": {
+        "^R[0-5]$": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["autonomy", "audit_depth"],
+          "properties": {
+            "label": {
+              "type": "string",
+              "description": "Человекочитаемое название класса."
+            },
+            "examples": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Примеры задач, попадающих в класс."
+            },
+            "autonomy": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "auto_with_hooks",
+                "agent_pr_human_review",
+                "agent_draft_security_review",
+                "human_approval_separation_of_duties",
+                "change_advisory_board"
+              ],
+              "description": "Уровень самостоятельности агента — от full-auto (R0) до change advisory board (R5). Имена соответствуют autonomy-полю в .gigacode/policies/risk-ladder.yaml."
+            },
+            "audit_depth": {
+              "type": "string",
+              "enum": [
+                "jsonl_minimal",
+                "jsonl_standard",
+                "jsonl_pr_evidence",
+                "jsonl_full_with_security",
+                "jsonl_full_with_security_and_human_signoff",
+                "jsonl_full_with_cab_signoff"
+              ],
+              "description": "Глубина audit trail. Каждый уровень — superset предыдущего."
+            },
+            "requires": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "Что обязательно для завершения задачи (sdd / tests / security_verdict / human_review / evidence_bundle)."
+            },
+            "denies": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Действия, заблокированные runtime для этого класса."
+            },
+            "asks": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Действия, требующие явного approval."
+            },
+            "token_budget": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Лимит токенов на задачу для cost-circuit-breaker."
+            },
+            "subagent_scope": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Допустимые subagent'ы для этого R-класса."
+            }
+          }
+        }
+      }
+    },
+    "domain_defaults": {
+      "type": "array",
+      "description": "Список glob-паттернов и их минимальный R-класс. Resolver применяет первый matching паттерн (как в CODEOWNERS). Например: src/auth/** → R3, docs/** → R0.",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["pattern", "min_class"],
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "Glob-паттерн файлов/директорий (поддерживается ** и *)."
+          },
+          "min_class": {
+            "type": "string",
+            "pattern": "^R[0-5]$",
+            "description": "Минимальный R-класс для путей, попадающих под pattern."
+          }
+        }
+      }
+    },
+    "escalation": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Правила эскалации: какие триггеры повышают класс."
+    },
+    "audit_schemas": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Маппинг audit_depth → требуемые поля JSONL event."
+    }
+  }
+}
