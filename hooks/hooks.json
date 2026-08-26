@@ -1,0 +1,155 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/cost-circuit-breaker.sh"
+          },
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/destructive-command-blocker.sh"
+          },
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/commit-message-format.sh"
+          },
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/branch-naming-gate.sh"
+          },
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/implement-iteration-cap-gate.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/cost-circuit-breaker.sh"
+          },
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/pii-boundary-check.sh"
+          },
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/test-files-protector.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/ai-code-quality-gate.sh"
+          },
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/jsonl-audit-sink.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/sdd-schema-gate.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/jsonl-audit-sink.sh"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/context-integrity-review.sh"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/token-usage-meter.sh"
+          },
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/subagent-stop-validator.sh"
+          },
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/jsonl-audit-sink.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/token-usage-meter.sh"
+          },
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/evidence-bundle-enforcer.sh"
+          },
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/jsonl-audit-sink.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/prompt-validator.sh"
+          },
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/slash-command-lint.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/gigacode-md-placeholders.sh"
+          },
+          {
+            "type": "command",
+            "command": "${extensionPath}/hooks/session-status.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
