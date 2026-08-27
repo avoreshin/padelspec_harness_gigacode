@@ -1,0 +1,8 @@
+# runtime-state (создаётся в проекте пользователя)
+.gigacode/audit/
+.gigacode/.cost/
+.gigacode/.cache/
+# validator node cache (self-installs at runtime)
+.cache/
+node_modules/
+**/.DS_Store
