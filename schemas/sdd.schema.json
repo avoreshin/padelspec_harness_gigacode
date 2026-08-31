@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-disrupt-pdlc.io/schemas/sdd.schema.json",
+  "title": "Software Design Document v3.5",
+  "description": "Структура SDD согласно §2.5 AI DISRUPT PDLC v3.5. Валидируется на извлечённом из markdown JSON (см. .gigacode/scripts/extract-sdd-frontmatter.sh). Источник правды для содержания — templates/SDD-template.md; эта schema формализует обязательность секций, не их содержание.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "id",
+    "author",
+    "status",
+    "risk_class",
+    "created",
+    "goal",
+    "acceptance_criteria",
+    "property_based_invariants",
+    "definition_of_done",
+    "sections"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^SDD-[0-9]{8}-[a-z0-9-]+$",
+      "description": "SDD-YYYYMMDD-<kebab-slug>. Должен совпадать с именем файла без расширения."
+    },
+    "author": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Автор SDD. Обычно совпадает с github-handle или kebab-name."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "approved", "implemented", "deprecated"],
+      "description": "Жизненный цикл SDD. draft → approved → implemented (или deprecated). См. §2.5 PDLC."
+    },
+    "risk_class": {
+      "type": "string",
+      "pattern": "^R[0-5]$",
+      "description": "Risk class из risk-ladder.yaml. См. §4.5 PDLC."
+    },
+    "created": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "ISO 8601 date. Не date-time — у SDD нет миллисекундной точности."
+    },
+    "last_update": {
+      "type": "string",
+      "description": "ISO 8601 date или пустая строка для свежих SDD. Optional."
+    },
+    "reviewers": {
+      "type": "string",
+      "description": "Свободный текст: имена reviewer-ов, флаги типа 'sole reviewer' или TBD. Для R3+ обязательно содержать имя SME, но это проверяется отдельно — не schema-валидацией."
+    },
+    "stories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9]+-[0-9]+$"
+      },
+      "description": "Ключи задач трекера из строки '**Story**' Metadata-таблицы. Связывает SDD с составом релиза: цикл тестирования по этому полю находит acceptance criteria каждой story, а не угадывает их по тексту. Поле НЕ обязательное — SDD, написанные до его появления, обязаны остаться валидными, и dev-цикл его не требует; обязательность проверяется только гейтом цикла тестирования (sdd-coverage-gate)."
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Первый параграф секции '## 1. Goal'. Должно быть одно предложение про проблему и для кого, см. SDD-template."
+    },
+    "risk_class_rationale": {
+      "type": "string",
+      "description": "Текст из секции '## 8. Risk class и обоснование'. Может быть TBD для свежих SDD; для R3+ должен быть заполнен — но это soft check."
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Заголовки AC-* секций. Минимум один. Содержимое (Given-When-Then) не валидируется schema — это human review."
+    },
+    "property_based_invariants": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Заголовки INV-* секций. Допускается пустой массив для R0/R1 простых задач."
+    },
+    "definition_of_done": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Checkbox-строки из секции '## 13. Definition of Done'. Минимум один."
+    },
+    "sections": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "has_goal",
+        "has_non_goals",
+        "has_acceptance",
+        "has_invariants",
+        "has_risk_rationale",
+        "has_definition_of_done"
+      ],
+      "properties": {
+        "has_goal":                { "type": "boolean", "const": true, "description": "§1 Goal обязательна." },
+        "has_non_goals":           { "type": "boolean", "const": true, "description": "§2 Non-goals обязательна." },
+        "has_acceptance":          { "type": "boolean", "const": true, "description": "§4 Acceptance criteria обязательна." },
+        "has_invariants":          { "type": "boolean", "description": "§5 Invariants — желательна, но не для всех R-классов hard-required." },
+        "has_risk_rationale":      { "type": "boolean", "const": true, "description": "§8 Risk class rationale обязательна." },
+        "has_definition_of_done":  { "type": "boolean", "const": true, "description": "§13 Definition of Done обязательна." }
+      },
+      "description": "Флаги наличия обязательных секций. Schema жёстко требует true для §1, §2, §4, §8, §13."
+    }
+  }
+}
