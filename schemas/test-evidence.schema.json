@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-disrupt-pdlc.io/schemas/test-evidence.schema.json",
+  "title": "Test evidence — свод по релизу для цикла тестирования",
+  "description": "Аналог evidence bundle для тестового цикла. Отличие не косметическое: acceptance criteria здесь — тест-модель docs/testcases/<release>.yaml, а не SDD; вместо diff по коду фиксируются сценарии, вердикт сверки и результат прогона по тегам.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "release", "generated_at", "model", "review"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "release": { "type": "string", "minLength": 3 },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "model": {
+      "type": "object",
+      "required": ["path", "test_cases"],
+      "additionalProperties": true,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "test_cases": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "autotests": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "scenarios": { "type": "integer", "minimum": 0 },
+        "files": { "type": "array", "items": { "type": "string" } },
+        "not_automated": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "review": {
+      "type": "object",
+      "required": ["verdict", "blockers", "major", "minor"],
+      "additionalProperties": true,
+      "properties": {
+        "verdict": { "type": "string", "enum": ["APPROVE", "REQUEST CHANGES", "BLOCK"] },
+        "blockers": { "type": "integer", "minimum": 0 },
+        "major": { "type": "integer", "minimum": 0 },
+        "minor": { "type": "integer", "minimum": 0 },
+        "open_findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "kind"],
+            "additionalProperties": true,
+            "properties": {
+              "id": { "type": "string" },
+              "kind": { "type": "string" },
+              "text": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "sdd": {
+      "type": "object",
+      "required": ["verdict", "stories", "acceptance_criteria", "covered"],
+      "additionalProperties": true,
+      "description": "Покрытие acceptance criteria из SDD (docs/sdd/*.md, §2.5 PDLC). Отвечает на другой вопрос, чем блок review: тот про «сценарий делает то, что просила тест-модель», этот — про «сама тест-модель покрывает то, что зафиксировано в SDD». Блока нет вовсе, если в проекте нет docs/sdd/.",
+      "properties": {
+        "verdict": { "type": "string", "enum": ["APPROVE", "REQUEST CHANGES", "BLOCK"] },
+        "stories": { "type": "integer", "minimum": 0, "description": "Story релиза, у которых нашёлся approved-SDD." },
+        "acceptance_criteria": { "type": "integer", "minimum": 0 },
+        "covered": { "type": "integer", "minimum": 0, "description": "Сколько AC-* покрыто хотя бы одним кейсом тест-модели." },
+        "documents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["story", "sdd"],
+            "additionalProperties": true,
+            "properties": {
+              "story": { "type": "string" },
+              "sdd": { "type": "string" },
+              "path": { "type": "string" },
+              "status": { "type": "string" },
+              "acceptance_criteria": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["ac"],
+                  "additionalProperties": true,
+                  "properties": {
+                    "ac": { "type": "string", "pattern": "^AC-[0-9]+$" },
+                    "cases": { "type": "array", "items": { "type": "string" } }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "open_findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "kind"],
+            "additionalProperties": true,
+            "properties": {
+              "id": { "type": "string" },
+              "kind": { "type": "string" },
+              "text": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "run": {
+      "type": "object",
+      "required": ["status"],
+      "additionalProperties": true,
+      "description": "Прогон по тегам @gen-*. not_run — законное состояние: стенд может быть недоступен, и это фиксируется, а не выдаётся за успех.",
+      "properties": {
+        "status": { "type": "string", "enum": ["passed", "failed", "not_run"] },
+        "tags": { "type": "string" },
+        "verdict": { "type": "string", "enum": ["clean", "fix", "out-of-scope", "infra", "unknown"] },
+        "log": { "type": "string" }
+      }
+    },
+    "export": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Загрузку файла в Zephyr делает человек — обвязка фиксирует только факт сборки XML.",
+      "properties": {
+        "file": { "type": "string" },
+        "test_cases": { "type": "integer", "minimum": 0 },
+        "uploaded_by_human": { "type": "boolean" }
+      }
+    },
+    "phases": {
+      "type": "array",
+      "description": "Переходы цикла из audit-трейла, в порядке появления.",
+      "items": {
+        "type": "object",
+        "required": ["to", "status"],
+        "additionalProperties": true,
+        "properties": {
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "status": { "type": "string", "enum": ["pass", "fail", "iterate", "escalate"] },
+          "timestamp": { "type": "string" }
+        }
+      }
+    },
+    "open_items": {
+      "type": "array",
+      "description": "Что осталось человеку. Пустой список — утверждение, а не умолчание.",
+      "items": { "type": "string" }
+    }
+  }
+}
