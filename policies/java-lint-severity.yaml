@@ -1,0 +1,101 @@
+# java-lint-severity.yaml
+# Policy-as-code (§2.6 GIGACODE.md) для /pdls:java-linter-review.
+# Субагент java-lint-review читает этот файл и приводит severity разных
+# линтеров к единой шкале High / Medium / Low.
+#
+# Каждый линтер имеет свою нативную шкалу приоритета. Ниже — детерминированный
+# маппинг в 3 уровня. Исходный приоритет сохраняется в отчёте под-полем
+# (raw_severity) для трассируемости.
+
+scale: [High, Medium, Low]
+
+# --- PMD ---
+# PMD priority: 1 (highest) .. 5 (lowest). В SARIF попадает как level +
+# properties. Маппинг по priority:
+pmd:
+  by_priority:
+    1: High
+    2: High
+    3: Medium
+    4: Low
+    5: Low
+  # Fallback, если priority не извлекается — по SARIF level:
+  by_sarif_level:
+    error: High
+    warning: Medium
+    note: Low
+    none: Low
+
+# --- Checkstyle ---
+# Checkstyle severity: error / warning / info. В curated-конфиге severity
+# правил выставлена осмысленно (сложность/размер = warning+).
+checkstyle:
+  by_severity:
+    error: High
+    warning: Medium
+    info: Low
+  by_sarif_level:
+    error: High
+    warning: Medium
+    note: Low
+    none: Low
+
+# --- PMD-CPD (дублирование) ---
+# У CPD нет severity. Критичность выводится из размера клона (строк).
+cpd:
+  by_duplicated_lines:
+    # >= порога строк -> уровень
+    high_min_lines: 100
+    medium_min_lines: 30
+    # всё меньше medium_min_lines -> Low
+  default: Medium
+
+# --- SpotBugs ---
+# SpotBugs rank: 1..20 (1 = самый страшный) + confidence/priority 1..3.
+# В SARIF rank маппится в level. Маппинг по rank:
+spotbugs:
+  by_rank:
+    # rank 1..4 -> High, 5..9 -> Medium, 10..20 -> Low
+    high_max_rank: 4
+    medium_max_rank: 9
+  by_sarif_level:
+    error: High
+    warning: Medium
+    note: Low
+    none: Low
+
+# --- Дедупликация ---
+# Находки разных линтеров про один и тот же smell склеиваются.
+dedup:
+  # окно совпадения по startLine (±N строк) при одинаковом файле и
+  # нормализованной категории
+  line_window: 3
+  # при склейке берётся максимальная severity, источники перечисляются
+  merge_strategy: max_severity_union_sources
+
+# --- Категоризация (для группировки в summary) ---
+# Нормализованные категории smells для агрегирования "топ-категорий".
+categories:
+  - duplication          # CPD; PMD CPD-like
+  - complexity           # cyclomatic, cognitive, nesting
+  - size                 # god class, long method, long parameter list
+  - dead_code            # unused var/method/import (ОБЯЗАТЕЛЬНАЯ проверка)
+  - solid                # нарушения SOLID (SRP: GodClass/TooManyMethods/Fields,
+                         #   ExcessiveParameterList, CouplingBetweenObjects) —
+                         #   ОБЯЗАТЕЛЬНАЯ проверка
+  - error_prone          # empty catch, == on strings, resource leaks
+  - design               # coupling, law of demeter, feature envy
+  - naming               # convention violations (обычно Low)
+  - other
+
+# --- Обязательные проверки (mandatory) ---
+# Эти два класса smells ДОЛЖНЫ присутствовать в каждом отчёте (даже с нулём
+# находок — тогда явный вердикт «Не обнаружено» / «нарушений нет»).
+mandatory_checks:
+  dead_code:
+    pmd: [UnusedPrivateField, UnusedPrivateMethod, UnusedLocalVariable, UnusedFormalParameter, UnusedAssignment, UnnecessaryImport]
+    checkstyle: [UnusedImports, RedundantImport, UnusedLocalVariable]
+  solid:
+    # SRP и связность — по структурным сигналам PMD design-категории:
+    pmd: [GodClass, TooManyMethods, TooManyFields, ExcessiveClassLength, ExcessivePublicCount, ExcessiveParameterList, CouplingBetweenObjects, CyclomaticComplexity, CognitiveComplexity]
+    # OCP/LSP/ISP/DIP — эвристическая оценка субагента по коду (линтеры не ловят).
