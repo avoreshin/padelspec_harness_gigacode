@@ -1,0 +1,51 @@
+{
+  "$version": 3,
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git reset --hard origin/*)",
+      "Bash(git clean -f*)",
+      "Bash(sudo*)",
+      "Bash(chmod 777*)",
+      "Bash(curl*|*sh)",
+      "Bash(wget*|*sh)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/credentials*)",
+      "Read(**/id_rsa*)",
+      "Read(**/.aws/credentials)",
+      "Read(**/.ssh/**)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "Bash(npm publish*)",
+      "Bash(pip install*)",
+      "Bash(docker push*)",
+      "Bash(terraform apply*)",
+      "Bash(kubectl apply*)",
+      "Bash(kubectl delete*)",
+      "Write(.github/workflows/**)",
+      "Write(infra/**)",
+      "Write(migrations/**)"
+    ],
+    "allow": [
+      "Read(**)",
+      "Grep(**)",
+      "Glob(**)",
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(npm test*)",
+      "Bash(npm run lint*)",
+      "Bash(pytest*)",
+      "Bash(go test*)",
+      "Bash(cargo test*)"
+    ]
+  }
+}

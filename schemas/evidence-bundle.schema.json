@@ -1,0 +1,408 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-disrupt-pdlc.io/schemas/evidence-bundle.schema.json",
+  "title": "Evidence Bundle v3.5",
+  "description": "Обязательный артефакт завершения агентной задачи. AI DISRUPT PDLC v3.5 §2.13. Risk-aware conditional rules согласно §4.5 — поля становятся обязательными в зависимости от risk_class.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "task_id",
+    "risk_class",
+    "sdd_reference",
+    "diff_summary",
+    "tests",
+    "completed_at"
+  ],
+  "properties": {
+
+    "schema_version": {
+      "type": "string",
+      "const": "3.5.0",
+      "description": "Версия схемы. Bumped при breaking changes."
+    },
+
+    "task_id": {
+      "type": "string",
+      "description": "Уникальный ID задачи (Jira key, PR number, GUID)"
+    },
+
+    "risk_class": {
+      "type": "string",
+      "enum": ["R0", "R1", "R2", "R3", "R4", "R5"],
+      "description": "Risk class из policies/risk-ladder.yaml"
+    },
+
+    "sdd_reference": {
+      "type": "string",
+      "description": "Путь к SDD-документу. Для R0 может быть ссылкой на ticket."
+    },
+
+    "acceptance_criteria_status": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^AC-[0-9]+$"},
+          "status": {"enum": ["passed", "failed", "not_covered"]},
+          "test_reference": {"type": "string"}
+        }
+      }
+    },
+
+    "diff_summary": {
+      "type": "object",
+      "required": ["files_changed", "additions", "deletions"],
+      "properties": {
+        "files_changed": {"type": "integer", "minimum": 0},
+        "additions":     {"type": "integer", "minimum": 0},
+        "deletions":     {"type": "integer", "minimum": 0},
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "change_type"],
+            "properties": {
+              "path":        {"type": "string"},
+              "change_type": {"enum": ["added", "modified", "deleted", "renamed"]},
+              "additions":   {"type": "integer"},
+              "deletions":   {"type": "integer"}
+            }
+          }
+        }
+      }
+    },
+
+    "commands_run": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+
+    "tests": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status":           {"enum": ["passed", "failed", "skipped", "unknown"]},
+        "passed":           {"type": "integer"},
+        "failed":           {"type": "integer"},
+        "skipped":          {"type": "integer"},
+        "duration_seconds": {"type": "number"},
+        "coverage_percent": {"type": "number", "minimum": 0, "maximum": 100}
+      }
+    },
+
+    "lint": {
+      "type": "object",
+      "properties": {
+        "warnings": {"type": "integer"},
+        "errors":   {"type": "integer"}
+      }
+    },
+
+    "typecheck": {
+      "type": "object",
+      "properties": {
+        "status": {"enum": ["passed", "failed", "skipped"]},
+        "errors": {"type": "integer"}
+      }
+    },
+
+    "security_scan": {
+      "type": "object",
+      "description": "SAST / secrets / dependency CVE scan.",
+      "properties": {
+        "status":   {"enum": ["passed", "failed", "skipped"]},
+        "critical": {"type": "integer"},
+        "high":     {"type": "integer"},
+        "medium":   {"type": "integer"},
+        "low":      {"type": "integer"}
+      }
+    },
+
+    "review_verdict": {
+      "type": "object",
+      "description": "Output Review Agent (§2.11).",
+      "required": ["verdict"],
+      "properties": {
+        "verdict": {"enum": ["APPROVE", "REQUEST_CHANGES", "BLOCK"]},
+        "findings": {
+          "type": "object",
+          "properties": {
+            "critical": {"type": "array", "items": {"type": "string"}},
+            "major":    {"type": "array", "items": {"type": "string"}},
+            "minor":    {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "reviewer_agent": {"type": "string"}
+      }
+    },
+
+    "security_verdict": {
+      "type": "object",
+      "description": "Output Security Agent. Mandatory для R3+ (§4.5).",
+      "required": ["verdict"],
+      "properties": {
+        "verdict": {"enum": ["PASS", "FAIL", "NEEDS_HUMAN_REVIEW"]},
+        "threat_coverage": {
+          "type": "object",
+          "description": "§5.2 — четыре категории угроз агентных систем.",
+          "properties": {
+            "overeager_behavior": {"type": "boolean"},
+            "honest_mistakes":    {"type": "boolean"},
+            "prompt_injection":   {"type": "boolean"},
+            "model_misalignment": {"type": "boolean"}
+          }
+        },
+        "findings": {
+          "type": "object",
+          "properties": {
+            "critical": {"type": "array", "items": {"type": "string"}},
+            "high":     {"type": "array", "items": {"type": "string"}},
+            "medium":   {"type": "array", "items": {"type": "string"}},
+            "low":      {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "supply_chain_checked": {"type": "boolean"},
+        "secrets_pii_checked":  {"type": "boolean"}
+      }
+    },
+
+    "human_signoff": {
+      "type": "object",
+      "description": "Required для R4+ (separation of duties, §4.5).",
+      "required": ["signoff_id", "approver", "timestamp"],
+      "properties": {
+        "signoff_id": {"type": "string"},
+        "approver":   {"type": "string"},
+        "timestamp":  {"type": "string", "format": "date-time"},
+        "separation_of_duties_proof": {
+          "type": "object",
+          "description": "Доказательство SoD: автор ≠ ревьюер ≠ деплоер.",
+          "properties": {
+            "author":   {"type": "string"},
+            "reviewer": {"type": "string"},
+            "deployer": {"type": "string"}
+          }
+        }
+      }
+    },
+
+    "cab_decision": {
+      "type": "object",
+      "description": "Change Advisory Board signoff. Required для R5.",
+      "required": ["decision_id", "decision", "minutes_link"],
+      "properties": {
+        "decision_id":  {"type": "string"},
+        "decision":     {"enum": ["approved", "approved_with_conditions", "rejected"]},
+        "minutes_link": {"type": "string", "format": "uri"},
+        "members":      {"type": "array", "items": {"type": "string"}}
+      }
+    },
+
+    "regulatory_eval_results": {
+      "type": "object",
+      "description": "Результаты регуляторных evals. Required для R5.",
+      "required": ["eval_suite", "status"],
+      "properties": {
+        "eval_suite":  {"type": "string"},
+        "status":      {"enum": ["passed", "failed"]},
+        "passed":      {"type": "integer"},
+        "failed":      {"type": "integer"},
+        "report_path": {"type": "string"}
+      }
+    },
+
+    "audit_depth": {
+      "type": "string",
+      "enum": [
+        "jsonl_minimal",
+        "jsonl_standard",
+        "jsonl_pr_evidence",
+        "jsonl_full_with_security",
+        "jsonl_full_with_security_and_human_signoff",
+        "jsonl_full_with_cab_signoff"
+      ],
+      "description": "Должен соответствовать audit_depth из risk-ladder.yaml."
+    },
+
+    "audit_trail_path": {
+      "type": "string",
+      "description": "Путь к append-only JSONL audit log (§5.7)."
+    },
+
+    "subagent_summaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["subagent", "summary"],
+        "properties": {
+          "subagent":        {"enum": ["explore", "plan", "test", "coding", "review", "security", "release"]},
+          "summary":         {"type": "string"},
+          "tools_used":      {"type": "array", "items": {"type": "string"}},
+          "transcript_path": {"type": "string"}
+        }
+      }
+    },
+
+    "unresolved_assumptions": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+
+    "open_risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["description", "severity"],
+        "properties": {
+          "description": {"type": "string"},
+          "severity":    {"enum": ["low", "medium", "high", "critical"]},
+          "mitigation":  {"type": "string"}
+        }
+      }
+    },
+
+    "token_usage": {
+      "type": "object",
+      "properties": {
+        "input_tokens":       {"type": "integer"},
+        "output_tokens":      {"type": "integer"},
+        "cached_tokens":      {"type": "integer"},
+        "estimated_cost_usd": {"type": "number"}
+      }
+    },
+
+    "human_interventions": {
+      "type": "integer",
+      "minimum": 0
+    },
+
+    "metrics_snapshot": {
+      "type": "object",
+      "description": "Срез четырёх категорий §6.7.",
+      "properties": {
+        "autonomy": {
+          "type": "object",
+          "properties": {
+            "no_intervention_ratio":  {"type": "number", "minimum": 0, "maximum": 1},
+            "session_length_minutes": {"type": "number"},
+            "subagent_depth":         {"type": "integer"}
+          }
+        },
+        "quality": {
+          "type": "object",
+          "properties": {
+            "test_pass_rate":        {"type": "number", "minimum": 0, "maximum": 1},
+            "regression_frequency":  {"type": "number"},
+            "evidence_completeness": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        },
+        "cost": {
+          "type": "object",
+          "properties": {
+            "tokens_per_task":            {"type": "integer"},
+            "usd_per_task":               {"type": "number"},
+            "context_budget_utilization": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        },
+        "trust": {
+          "type": "object",
+          "properties": {
+            "auto_approve_rate":  {"type": "number", "minimum": 0, "maximum": 1},
+            "intervention_rate":  {"type": "number", "minimum": 0, "maximum": 1},
+            "hook_block_rate":    {"type": "number", "minimum": 0, "maximum": 1},
+            "context_drift_rate": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        }
+      }
+    },
+
+    "completed_at":  {"type": "string", "format": "date-time"},
+    "agent_version": {"type": "string"},
+    "model":         {"type": "string"},
+
+    "git_context": {
+      "type": "object",
+      "description": "Git state at the moment the bundle was generated. Auto-filled by collect-evidence.sh. Pins the bundle to a specific commit so audit can reconstruct what was reviewed.",
+      "required": ["branch", "head_sha", "dirty"],
+      "properties": {
+        "branch":   {"type": "string", "description": "Current branch name; 'not-a-git-repo' if no git."},
+        "head_sha": {"type": "string", "description": "Full SHA of HEAD at bundle generation; empty string if no git."},
+        "dirty":    {"type": "boolean", "description": "True if working tree had uncommitted changes when bundle was written."},
+        "remote_url": {"type": "string", "description": "Origin URL, optional."}
+      }
+    },
+
+    "test_hint": {
+      "type": "object",
+      "description": "Detected test framework and suggested command. Informational only — the authoritative pass/fail counts live in `tests`. collect-evidence.sh fills this so the model knows which runner to invoke.",
+      "properties": {
+        "framework": {"type": "string", "description": "node:test | vitest | jest | mocha | pytest | go | cargo | unknown"},
+        "command":   {"type": "string", "description": "Suggested invocation, e.g. 'npm test', 'pytest', 'go test ./...'"},
+        "note":      {"type": "string"}
+      }
+    }
+  },
+
+  "allOf": [
+    {
+      "$comment": "R2+: review_verdict + git_context обязательны (без git_context bundle не привязан к коммиту, аудит невозможен).",
+      "if": { "properties": {"risk_class": {"enum": ["R2", "R3", "R4", "R5"]}} },
+      "then": {
+        "required": ["review_verdict", "git_context"],
+        "properties": {
+          "git_context": {
+            "type": "object",
+            "properties": {
+              "head_sha": {"type": "string", "minLength": 7, "$comment": "must be a real commit SHA, not empty"},
+              "dirty":    {"type": "boolean", "const": false, "$comment": "R2+ bundles must come from a clean working tree"}
+            }
+          }
+        }
+      }
+    },
+    {
+      "$comment": "R3+: security_verdict обязателен и должен быть PASS.",
+      "if": { "properties": {"risk_class": {"enum": ["R3", "R4", "R5"]}} },
+      "then": {
+        "required": ["security_verdict"],
+        "properties": {
+          "security_verdict": {
+            "type": "object",
+            "properties": { "verdict": {"const": "PASS"} }
+          }
+        }
+      }
+    },
+    {
+      "$comment": "R4+: human_signoff обязателен с SoD.",
+      "if": { "properties": {"risk_class": {"enum": ["R4", "R5"]}} },
+      "then": {
+        "required": ["human_signoff"],
+        "properties": {
+          "human_signoff": {
+            "type": "object",
+            "required": ["separation_of_duties_proof"]
+          }
+        }
+      }
+    },
+    {
+      "$comment": "R5: CAB decision + regulatory evals обязательны.",
+      "if": { "properties": {"risk_class": {"const": "R5"}} },
+      "then": {
+        "required": ["cab_decision", "regulatory_eval_results"],
+        "properties": {
+          "cab_decision": {
+            "type": "object",
+            "properties": { "decision": {"enum": ["approved", "approved_with_conditions"]} }
+          },
+          "regulatory_eval_results": {
+            "type": "object",
+            "properties": { "status": {"const": "passed"} }
+          }
+        }
+      }
+    }
+  ]
+}
