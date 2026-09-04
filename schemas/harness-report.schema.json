@@ -1,0 +1,471 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-disrupt-pdlc.io/schemas/harness-report.schema.json",
+  "title": "Harness report — диагностический артефакт обвязки",
+  "description": "Отчёт о состоянии обвязки: что установлено, что сработало, какие вердикты дали гейты. Принцип состава — структура и вердикты, но не содержимое. Схема закрепляет именно это: у находок есть вид и количество, но нет полей под текст сценария, ожидания или описания задачи. Поле с текстом из проекта не должно появляться здесь молча.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "redaction",
+    "harness",
+    "environment"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "redaction": {
+      "type": "object",
+      "required": [
+        "mode"
+      ],
+      "additionalProperties": false,
+      "description": "Что сделала редактура. Читается первым: без него неизвестно, безопасен ли файл.",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "safe",
+            "keep-keys"
+          ],
+          "description": "safe — ключи задач заменены псевдонимами; keep-keys — оставлены осознанным решением человека."
+        },
+        "aliases": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "replacements": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "Сколько раз сработало каждое правило: email, ipv4, pan, token, host, abs-path, issue-key, sdd-key."
+        }
+      }
+    },
+    "harness": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "head": {
+          "type": "string"
+        },
+        "branch": {
+          "type": "string"
+        },
+        "dirty": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "layout": {
+          "type": "string",
+          "enum": [
+            "claude",
+            "gigacode"
+          ]
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "os": {
+          "type": "string"
+        },
+        "python": {
+          "type": "string"
+        },
+        "binaries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "present"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "present": {
+                "type": "boolean"
+              },
+              "required": {
+                "type": "boolean"
+              },
+              "version": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "release": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "hooks": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Привязки из settings.json против физического наличия файлов. Разрыв между ними — самая дорогая тихая поломка: settings.json показывает гейт включённым, а его нет.",
+      "properties": {
+        "registered": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "event",
+              "hook"
+            ],
+            "properties": {
+              "event": {
+                "type": "string"
+              },
+              "matcher": {
+                "type": "string"
+              },
+              "hook": {
+                "type": "string"
+              },
+              "present": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "not_executable": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "unwired": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "syntax_errors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "hook"
+            ],
+            "properties": {
+              "hook": {
+                "type": "string"
+              },
+              "error": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "schemas": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ran": {
+          "type": "boolean"
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exit_code": {
+          "type": "integer"
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stderr_head": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "selftest": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Прогон tests/smoke/run-all.sh. Сети не требует, работает полностью локально.",
+      "properties": {
+        "ran": {
+          "type": "boolean"
+        },
+        "exit_code": {
+          "type": "integer"
+        },
+        "cases": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tiers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "tier",
+              "status"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "tier": {
+                "type": "string",
+                "pattern": "^T[0-9]+$"
+              },
+              "status": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "reason": {
+          "type": "string"
+        },
+        "timeout": {
+          "type": "boolean"
+        },
+        "failed_cases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Факты из append-only трейла. Причины отказов проходят редактуру и обрезаются.",
+      "properties": {
+        "files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lines": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unparsable": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "events": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "denies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "hook",
+              "count"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "hook": {
+                "type": "string"
+              },
+              "tool": {
+                "type": "string"
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "reason_head": {
+                "type": "string",
+                "maxLength": 300
+              }
+            }
+          }
+        },
+        "phases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "to"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "task": {
+                "type": "string"
+              },
+              "loop": {
+                "type": "string",
+                "enum": [
+                  "dev",
+                  "testing"
+                ]
+              },
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "iteration": {
+                "type": [
+                  "integer",
+                  "string",
+                  "null"
+                ]
+              },
+              "risk_class": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "pipeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Конвейер тестировщика: только вердикты и ВИДЫ находок с количеством. Текста сценария, ожидания и критерия здесь нет и быть не должно.",
+      "properties": {
+        "release": {
+          "type": "string"
+        },
+        "profile": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "exit_code": {
+              "type": "integer"
+            },
+            "stale": {
+              "type": "boolean"
+            },
+            "summary": {
+              "type": "string"
+            }
+          }
+        },
+        "sdd_coverage": {
+          "$ref": "#/$defs/verdict"
+        },
+        "readiness": {
+          "$ref": "#/$defs/verdict"
+        },
+        "autotest_review": {
+          "$ref": "#/$defs/verdict"
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "attention": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "На что смотреть первым делом, по цене ошибки. Пустой список — утверждение, а не умолчание."
+    },
+    "errors": {
+      "type": "array",
+      "description": "Сбор не должен падать: то, что не собралось, попадает сюда как факт.",
+      "items": {
+        "type": "object",
+        "required": [
+          "where"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "where": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "exit_code": {
+          "type": "integer"
+        },
+        "verdict": {
+          "type": "string"
+        },
+        "findings": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "description": "Вид находки → сколько раз. Именно вид: `ac-uncovered`, `channel-drift`. Не текст."
+        },
+        "error_head": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,313 @@
+# Context Supply Chain Registry
+#
+# SBOM-подобный реестр context-артефактов согласно §2.5 PDLC v3.5.
+# Цель — отслеживать lifecycle всего, что попадает в контекст агента:
+#   - AGENTS.md / GIGACODE.md и их include-цепочки
+#   - skills (.gigacode/skills/* и подключаемые)
+#   - MCP-серверы (.mcp.json)
+#   - evals
+#   - hook scripts
+#
+# Каждый артефакт имеет:
+#   id, version, owner, source, integrity_hash, trust_level, last_audit
+#
+# Используется skill `verify-mcp-supply-chain` для проверки при старте сессии.
+
+registry_version: "1.0.0"
+pdlc_section: "§2.5 + §5.3 + §5.6"
+last_review: "2026-05-13"
+
+# ============================================================================
+# CONTEXT ARTIFACTS — описание ваших context-источников
+# ============================================================================
+artifacts:
+
+  # --- AGENTS.md / GIGACODE.md layer ---
+
+  - id: gigacode-md
+    type: guidance
+    path: .gigacode/GIGACODE.md
+    version: "3.5.0"
+    owner: context-supply-chain-owner
+    source: internal
+    integrity_hash: null              # вычисляется через sha256sum
+    trust_level: trusted
+    last_audit: "2026-05-13"
+    deprecation: null
+    notes: |
+      Главный guidance-файл. §7 содержит запреты, дублированные в hooks для enforcement.
+
+  - id: subagents-readme
+    type: guidance
+    path: .gigacode/agents/README.md
+    version: "1.0.0"
+    owner: context-supply-chain-owner
+    source: internal
+    trust_level: trusted
+    last_audit: "2026-05-13"
+
+  # --- subagent profiles ---
+
+  - id: agent-explore
+    type: subagent-profile
+    path: .gigacode/agents/explore.md
+    version: "1.0.0"
+    owner: harness-platform-engineer
+    source: internal
+    trust_level: trusted
+    last_audit: "2026-05-13"
+    tools_declared: [Read, Grep, Glob]
+
+  - id: agent-plan
+    type: subagent-profile
+    path: .gigacode/agents/plan.md
+    version: "1.0.0"
+    owner: harness-platform-engineer
+    source: internal
+    trust_level: trusted
+    last_audit: "2026-05-13"
+    tools_declared: [Read, Grep, Glob, WebFetch]
+
+  - id: agent-coding
+    type: subagent-profile
+    path: .gigacode/agents/coding.md
+    version: "1.0.0"
+    owner: harness-platform-engineer
+    source: internal
+    trust_level: trusted
+    last_audit: "2026-05-13"
+    tools_declared: [Read, Grep, Glob, Write, Edit, Bash]
+
+  - id: agent-security
+    type: subagent-profile
+    path: .gigacode/agents/security.md
+    version: "1.0.0"
+    owner: ai-security-officer
+    source: internal
+    trust_level: trusted
+    last_audit: "2026-05-13"
+    tools_declared: [Read, Grep, Glob, Bash]
+    notes: "Mandatory для R3+ задач. Изменения требуют security review."
+
+  # --- hooks (runtime enforcement) ---
+
+  - id: hook-destructive-blocker
+    type: hook
+    path: .gigacode/hooks/destructive-command-blocker.sh
+    version: "2.0.0"
+    owner: guardian-agent-engineer
+    source: internal
+    trust_level: trusted
+    integrity_hash: null
+    signature: null                   # gpg-подпись (TBD — gap из threat-model)
+    last_audit: "2026-05-13"
+    event: PreToolUse
+    risk_aware: true
+
+  - id: hook-evidence-enforcer
+    type: hook
+    path: .gigacode/hooks/evidence-bundle-enforcer.sh
+    version: "2.0.0"
+    owner: guardian-agent-engineer
+    source: internal
+    trust_level: trusted
+    signature: null
+    last_audit: "2026-05-13"
+    event: Stop
+    risk_aware: true
+
+  - id: hook-cost-circuit-breaker
+    type: hook
+    path: .gigacode/hooks/cost-circuit-breaker.sh
+    version: "1.0.0"
+    owner: guardian-agent-engineer
+    source: internal
+    trust_level: trusted
+    signature: null
+    last_audit: "2026-05-13"
+    event: PreToolUse
+
+  - id: hook-subagent-stop-validator
+    type: hook
+    path: .gigacode/hooks/subagent-stop-validator.sh
+    version: "1.0.0"
+    owner: guardian-agent-engineer
+    source: internal
+    trust_level: trusted
+    signature: null
+    last_audit: "2026-05-13"
+    event: SubagentStop
+
+  - id: hook-context-integrity
+    type: hook
+    path: .gigacode/hooks/context-integrity-review.sh
+    version: "1.0.0"
+    owner: guardian-agent-engineer
+    source: internal
+    trust_level: trusted
+    signature: null
+    last_audit: "2026-05-13"
+    event: PreCompact
+
+  - id: hook-jsonl-audit-sink
+    type: hook
+    path: .gigacode/hooks/jsonl-audit-sink.sh
+    version: "1.0.0"
+    owner: agentops-engineer
+    source: internal
+    trust_level: trusted
+    signature: null
+    last_audit: "2026-05-13"
+    event: PostToolUse|SubagentStop|Stop
+    appends_to: .gigacode/audit/*.jsonl
+
+  # --- skills (повторяемые workflows) ---
+
+  - id: skill-humanizer
+    type: skill
+    path: .agents/skills/humanizer/SKILL.md
+    version: "2.5.1"
+    owner: context-supply-chain-owner
+    source: vendor                    # third-party
+    upstream: "github.com/.../humanizer"
+    trust_level: pinned
+    signature: null
+    last_audit: "2026-05-13"
+    notes: "External skill, pinned to v2.5.1. Update only after diff review."
+
+  # --- policy ---
+
+  - id: policy-risk-ladder
+    type: policy
+    path: .gigacode/policies/risk-ladder.yaml
+    version: "1.0.0"
+    owner: ai-security-officer
+    source: internal
+    trust_level: trusted
+    last_audit: "2026-05-13"
+    notes: "Source of truth for R0–R5 enforcement. Changes require security review."
+
+  # --- schemas ---
+
+  - id: schema-evidence-bundle
+    type: schema
+    path: .gigacode/schemas/evidence-bundle.schema.json
+    version: "3.5.0"
+    owner: context-supply-chain-owner
+    source: internal
+    trust_level: trusted
+    last_audit: "2026-05-13"
+
+  # --- MCP servers (PLACEHOLDER — заполнить, когда подключите) ---
+
+  # - id: mcp-jira
+  #   type: mcp-server
+  #   path: .mcp.json#jira
+  #   version: "1.2.3"
+  #   owner: agentops-engineer
+  #   source: vendor
+  #   upstream: "github.com/...mcp-jira"
+  #   trust_level: pinned
+  #   signature: null                 # обязательно для production
+  #   integrity_hash: null            # sha256 binary
+  #   last_audit: null
+
+# ============================================================================
+# TRUST LEVELS — что означает каждый
+# ============================================================================
+trust_levels:
+
+  trusted:
+    description: |
+      Внутренний артефакт, под git review, owner назначен.
+      Изменения проходят через PR.
+    auto_load: true
+    audit_frequency_days: 90
+
+  pinned:
+    description: |
+      Внешний артефакт, версия зафиксирована.
+      Обновление только после diff review владельцем.
+    auto_load: true
+    audit_frequency_days: 30
+
+  sandboxed:
+    description: |
+      Не до конца проверенный артефакт.
+      Загружается в изолированной среде (filesystem + network restrict).
+    auto_load: false                  # требует явного approve
+    audit_frequency_days: 7
+
+  quarantined:
+    description: |
+      Артефакт под подозрением (был инцидент, ожидает аудита).
+      Не загружается, hard block.
+    auto_load: false
+    audit_frequency_days: 1
+
+  deprecated:
+    description: |
+      Артефакт устарел, в процессе удаления.
+      Warning при загрузке, удаление по deprecation.removal_date.
+    auto_load: true                   # с warning
+    audit_frequency_days: 30
+
+# ============================================================================
+# DEPRECATION POLICY — как выводить артефакты из обращения
+# ============================================================================
+deprecation_policy:
+  warning_period_days: 30             # сколько warning'ов перед удалением
+  removal_grace_days: 60              # после warning срок до remove
+  notify_owners: true
+
+  pattern_example:
+    deprecation:
+      reason: "superseded by skill-X v2"
+      replacement: skill-x-v2
+      announced_at: "2026-04-01"
+      removal_date: "2026-06-01"
+
+# ============================================================================
+# AUDIT POLICY — кто и когда проверяет
+# ============================================================================
+audit_policy:
+
+  quarterly_review:
+    owner: context-supply-chain-owner
+    checks:
+      - all_artifacts_have_owner
+      - all_external_artifacts_pinned
+      - integrity_hashes_match
+      - deprecated_artifacts_have_removal_date
+      - last_audit_within_audit_frequency
+
+  pre_session_check:
+    runner: skill-verify-mcp-supply-chain
+    blocks_if:
+      - any_quarantined_artifact_active
+      - any_external_artifact_signature_mismatch
+      - any_artifact_missing_owner
+
+  on_external_artifact_update:
+    require:
+      - diff_review_by_owner
+      - integrity_hash_recomputed
+      - last_audit_updated
+      - changelog_link
+
+# ============================================================================
+# GAPS — что в текущей версии ещё не работает (честный список)
+# ============================================================================
+known_gaps:
+  - description: "gpg/cosign подписи для hooks и MCP-серверов"
+    priority: 1
+    blocks: [pre-trust-initialization-protection]
+    pdlc_ref: "§5.3 + threat-model.md gap #1"
+
+  - description: "integrity_hash вычисляется вручную, нет CI auto-check"
+    priority: 2
+    blocks: [tamper-detection]
+
+  - description: "Нет webhook на upstream-update внешних skills/MCP"
+    priority: 3
+    blocks: [drift-detection]
